@@ -34,9 +34,21 @@
 }
 
 - (BOOL)identity_application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-    if(![FIRApp defaultApp]) {
-        [FIRApp configure];
-    }
+    /*
+        // Commenting for fixing ios configure issue
+        if(![FIRApp defaultApp]) {
+            [FIRApp configure];
+        }
+    */
+
+    // Commented if(![FIRApp defaultApp]) code block, and added below snippet since ios device was not receiving Push Notifications
+    // Get the path for Google-Service-Info.plist
+    
+    NSString * filePath =[[NSBundle mainBundle] pathForResource:@"GoogleService-Info" ofType: @"plist"];
+    
+    // Init FIRApp passing the file
+    FIROptions * options =[[FIROptions alloc] initWithContentsOfFile: filePath];
+    [FIRApp configureWithOptions: options];
 
     [FIRMessaging messaging].delegate = self;
     [UNUserNotificationCenter currentNotificationCenter].delegate = self;

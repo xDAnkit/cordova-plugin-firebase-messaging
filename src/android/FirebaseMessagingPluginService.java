@@ -1,6 +1,9 @@
 package by.chemerisuk.cordova.firebase;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -8,20 +11,27 @@ import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
+
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
 import android.util.Log;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import com.nuvolo.mobius.R;
+
+import java.util.Map;
+import java.util.Random;
 
 import static android.content.ContentResolver.SCHEME_ANDROID_RESOURCE;
 
 
 public class FirebaseMessagingPluginService extends FirebaseMessagingService {
-    private static final String TAG = "FirebaseMessagingPluginService";
+    private static final String TAG = "FirebaseMessaging";
 
     public static final String ACTION_FCM_MESSAGE = "by.chemerisuk.cordova.firebase.ACTION_FCM_MESSAGE";
     public static final String EXTRA_FCM_MESSAGE = "by.chemerisuk.cordova.firebase.EXTRA_FCM_MESSAGE";
@@ -46,7 +56,7 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
             this.defaultNotificationColor = ContextCompat.getColor(this, ai.metaData.getInt(NOTIFICATION_COLOR_KEY));
         } catch (PackageManager.NameNotFoundException e) {
             Log.e(TAG, "Failed to load meta-data", e);
-        } catch(Resources.NotFoundException e) {
+        } catch (Resources.NotFoundException e) {
             Log.e(TAG, "Failed to load notification color", e);
         }
     }
@@ -69,32 +79,63 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
         this.broadcastManager.sendBroadcast(intent);
 
         if (FirebaseMessagingPlugin.isForceShow()) {
-            RemoteMessage.Notification notification = remoteMessage.getNotification();
-            if (notification != null) {
-                showAlert(notification);
+            if (remoteMessage.getData().size() > 0) {
+                Log.d("MESS", "Message data payload: " + remoteMessage.getData());
+                sendNotification(remoteMessage);
             }
         }
     }
 
-    private void showAlert(RemoteMessage.Notification notification) {
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, notification.getChannelId());
-        builder.setContentTitle(notification.getTitle());
-        builder.setContentText(notification.getBody());
-        builder.setGroup(notification.getTag());
-        builder.setSmallIcon(this.defaultNotificationIcon);
-        builder.setColor(this.defaultNotificationColor);
-        // must set sound and priority in order to display alert
-        builder.setSound(getNotificationSound(notification.getSound()));
-        builder.setPriority(1);
+    private void sendNotification(RemoteMessage remoteMessage) {
 
-        this.notificationManager.notify(0, builder.build());
-        // dismiss notification to hide icon from status bar automatically
-        new Handler(getMainLooper()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                notificationManager.cancel(0);
+        Map remoteMessageData = remoteMessage.getData();
+        String aTitle = (String) remoteMessageData.get("title");
+        String aMessage = (String) remoteMessageData.get("body");
+
+
+        String name = "user_channel"; // They are hardcoded only for show it's just strings
+        String id = "user_channel_1"; // The user-visible name of the channel.
+        String description = "user_first_channel"; // The user-visible description of the channel.
+
+        PendingIntent pendingIntent;
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.journaldev.com/"));
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, id);
+
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel mChannel = this.notificationManager.getNotificationChannel(id);
+
+            if (mChannel == null) {
+                mChannel = new NotificationChannel(id, name, NotificationManager.IMPORTANCE_HIGH);
+                mChannel.setDescription(description);
+                mChannel.enableVibration(true);
+                mChannel.setVibrationPattern(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400});
+                this.notificationManager.createNotificationChannel(mChannel);
             }
-        }, 3000);
+        }
+
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        pendingIntent = PendingIntent.getActivity(this, 0, intent, 0);
+
+        builder.setContentTitle(aTitle)
+                .setContentText(aMessage)
+                .setSmallIcon(this.defaultNotificationIcon)
+                .setColor(this.defaultNotificationColor)
+                .setDefaults(Notification.DEFAULT_ALL)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setTicker(aTitle)
+                .setVibrate(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400})
+                .setPriority(Notification.PRIORITY_HIGH)
+                .setAutoCancel(true);
+
+
+        //To handle Multiple Notification in system tray
+        Random random = new Random();
+        int m = random.nextInt(9999 - 1000) + 1000;
+        Notification notification = builder.build();
+        this.notificationManager.notify(m, notification);
+
     }
 
     private Uri getNotificationSound(String soundName) {
