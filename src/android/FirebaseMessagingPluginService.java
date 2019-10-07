@@ -89,7 +89,7 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
     }
 
 
-    private void sendNotificationWithOutPopup(RemoteMessage.Notification notification) {
+    private void sendNotificationWithOutPopup(RemoteMessage remoteMessage) {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, notification.getChannelId());
         
         Map remoteMessageData = remoteMessage.getData();
