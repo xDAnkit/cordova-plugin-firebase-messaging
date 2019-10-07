@@ -72,7 +72,7 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
 
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
-        //FirebaseMessagingPlugin.sendNotification(remoteMessage);
+        FirebaseMessagingPlugin.sendNotification(remoteMessage);
 
         Intent intent = new Intent(ACTION_FCM_MESSAGE);
         intent.putExtra(EXTRA_FCM_MESSAGE, remoteMessage);
@@ -81,37 +81,12 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
         if (FirebaseMessagingPlugin.isForceShow()) {
             if (remoteMessage.getData().size() > 0) {
                 Log.d("MESS", "Message data payload: " + remoteMessage.getData());
-                sendNotificationWithPopup(remoteMessage);
+                sendNotification(remoteMessage);
             }
-        } else {
-            sendNotificationWithOutPopup(remoteMessage);
         }
     }
 
-
-    private void sendNotificationWithOutPopup(RemoteMessage remoteMessage) {
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "DEFAULT_CHANNEL");        
-        Map remoteMessageData = remoteMessage.getData();
-        String aTitle = (String) remoteMessageData.get("title");
-        String aMessage = (String) remoteMessageData.get("body");
-        builder.setContentTitle(aTitle);
-        builder.setContentText(aMessage);
-        builder.setSmallIcon(this.defaultNotificationIcon);
-        builder.setColor(this.defaultNotificationColor);
-        // must set sound and priority in order to display alert
-        builder.setPriority(1);
-
-        this.notificationManager.notify(0, builder.build());
-        // dismiss notification to hide icon from status bar automatically
-        new Handler(getMainLooper()).postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                notificationManager.cancel(0);
-            }
-        }, 3000);
-    }
-
-    private void sendNotificationWithPopup(RemoteMessage remoteMessage) {
+    private void sendNotification(RemoteMessage remoteMessage) {
 
         Map remoteMessageData = remoteMessage.getData();
         String aTitle = (String) remoteMessageData.get("title");
