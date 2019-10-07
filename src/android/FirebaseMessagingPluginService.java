@@ -84,7 +84,7 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
                 sendNotificationWithPopup(remoteMessage);
             }
         } else {
-            sendNotificationWithOutPopup(remoteMessage)
+            sendNotificationWithOutPopup(remoteMessage);
         }
     }
 
