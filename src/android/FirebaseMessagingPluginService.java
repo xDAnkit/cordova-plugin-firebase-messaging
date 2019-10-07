@@ -90,8 +90,7 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
 
 
     private void sendNotificationWithOutPopup(RemoteMessage remoteMessage) {
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, notification.getChannelId());
-        
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "DEFAULT_CHANNEL");        
         Map remoteMessageData = remoteMessage.getData();
         String aTitle = (String) remoteMessageData.get("title");
         String aMessage = (String) remoteMessageData.get("body");
