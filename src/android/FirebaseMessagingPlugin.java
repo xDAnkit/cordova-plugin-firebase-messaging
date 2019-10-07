@@ -184,8 +184,8 @@ public class FirebaseMessagingPlugin extends ReflectiveCordovaPlugin {
         try {
             if (notification != null) {
                 JSONObject jsonNotification = new JSONObject();
-                jsonNotification.put("body", remoteMessageData.get("body"));
-                jsonNotification.put("title", remoteMessageData.get("title"));
+                jsonNotification.put("body", notificationData.get("body"));
+                jsonNotification.put("title", notificationData.get("title"));
                 
                 /*
                 jsonNotification.put("sound", notification.getSound());
