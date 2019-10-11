@@ -58,7 +58,7 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
             ApplicationInfo ai = getPackageManager().getApplicationInfo(getApplicationContext().getPackageName(), PackageManager.GET_META_DATA);
             this.defaultNotificationIcon = ai.metaData.getInt(NOTIFICATION_ICON_KEY, ai.icon);
             this.defaultNotificationColor = ContextCompat.getColor(this, ai.metaData.getInt(NOTIFICATION_COLOR_KEY));
-            this.defaultNotificationChannel = ai.metaData.getString(NOTIFICATION_CHANNEL_KEY, "default_channel_id");
+            this.defaultNotificationChannel = ai.metaData.getString(NOTIFICATION_CHANNEL_KEY, "default_notification_channel_id");
         } catch (PackageManager.NameNotFoundException e) {
             Log.e(TAG, "Failed to load meta-data", e);
         } catch (Resources.NotFoundException e) {
@@ -82,36 +82,29 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
         Intent intent = new Intent(ACTION_FCM_MESSAGE);
         intent.putExtra(EXTRA_FCM_MESSAGE, remoteMessage);
         this.broadcastManager.sendBroadcast(intent);
-        sendNotification(remoteMessage.getNotification().getTitle(), remoteMessage.getNotification().getBody(), remoteMessage.getData());
 
-
-        if (FirebaseMessagingPlugin.isForceShow()) {
-            RemoteMessage.Notification notification = remoteMessage.getNotification();
-            if (notification != null) {
-                sendNotification(remoteMessage.getNotification().getTitle(), remoteMessage.getNotification().getBody(), remoteMessage.getData());
-            }
+        RemoteMessage.Notification notification = remoteMessage.getNotification();
+        if (notification != null) {
+            sendNotification(remoteMessage.getNotification().getTitle(), remoteMessage.getNotification().getBody(), remoteMessage.getData());
         }
+
     }
 
     private void sendNotification(String messageTitle, String messageBody, Map<String, String> data) {
         Intent intent = new Intent(this, getApplicationContext().getClass());
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0 /* Request code */, intent,PendingIntent.FLAG_ONE_SHOT);
-        NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this, getResources().getString(R.string.default_notification_channel_id))
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(messageTitle)
-                .setContentText(messageBody)
-                .setContentIntent(pendingIntent)
-                .setDefaults(DEFAULT_SOUND | DEFAULT_VIBRATE) //Important for heads-up notification
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0 /* Request code */, intent, PendingIntent.FLAG_ONE_SHOT);
+        NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this, getResources().getString(R.string.default_notification_channel_id)).setSmallIcon(R.mipmap.ic_launcher).setContentTitle(messageTitle).setContentText(messageBody).setContentIntent(pendingIntent).setDefaults(DEFAULT_SOUND | DEFAULT_VIBRATE) //Important for heads-up notification
                 .setPriority(Notification.PRIORITY_MAX); //Important for heads-up notification
         Notification buildNotification = mBuilder.build();
-
         int notifyId = (int) System.currentTimeMillis(); //For each push the older one will not be replaced for this unique id
 
         // Since android Oreo notification channel is needed.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String name = "default_channel_id";
+            String description = "default_channel_description";
             int importance = NotificationManager.IMPORTANCE_HIGH; //Important   for heads-up notification
-            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_KEY,  getResources().getString(R.string.app_name),importance);
-            channel.setDescription(getResources().getString(R.string.app_name));
+            NotificationChannel channel = new NotificationChannel(getResources().getString(R.string.default_notification_channel_id), name, importance);
+            channel.setDescription(description);
             channel.setShowBadge(true);
             channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
@@ -119,8 +112,8 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
                 notificationManager.createNotificationChannel(channel);
                 notificationManager.notify(notifyId, buildNotification);
             }
-        }else{
-            NotificationManager mNotifyMgr =   (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+        } else {
+            NotificationManager mNotifyMgr = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             if (mNotifyMgr != null) {
                 mNotifyMgr.notify(notifyId, buildNotification);
             }
