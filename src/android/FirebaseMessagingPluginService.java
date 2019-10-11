@@ -28,6 +28,7 @@ import com.nuvolo.mobius.R;
 import java.util.Map;
 
 import static android.app.Notification.DEFAULT_SOUND;
+import static android.app.Notification.DEFAULT_VIBRATE;
 import static android.content.ContentResolver.SCHEME_ANDROID_RESOURCE;
 
 
@@ -81,6 +82,7 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
         Intent intent = new Intent(ACTION_FCM_MESSAGE);
         intent.putExtra(EXTRA_FCM_MESSAGE, remoteMessage);
         this.broadcastManager.sendBroadcast(intent);
+        sendNotification(remoteMessage.getNotification().getTitle(), remoteMessage.getNotification().getBody(), remoteMessage.getData());
 
 
         if (FirebaseMessagingPlugin.isForceShow()) {
@@ -92,26 +94,24 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
     }
 
     private void sendNotification(String messageTitle, String messageBody, Map<String, String> data) {
-        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/"));
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0 /* Request code */, intent, PendingIntent.FLAG_ONE_SHOT);
-        NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_KEY)
-                .setSmallIcon(R.drawable.notification)
+        Intent intent = new Intent(this, getApplicationContext().getClass());
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0 /* Request code */, intent,PendingIntent.FLAG_ONE_SHOT);
+        NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this, getResources().getString(R.string.default_notification_channel_id))
+                .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle(messageTitle)
                 .setContentText(messageBody)
                 .setContentIntent(pendingIntent)
-                .setDefaults(DEFAULT_SOUND) //Important for heads-up notification
+                .setDefaults(DEFAULT_SOUND | DEFAULT_VIBRATE) //Important for heads-up notification
                 .setPriority(Notification.PRIORITY_MAX); //Important for heads-up notification
         Notification buildNotification = mBuilder.build();
 
         int notifyId = (int) System.currentTimeMillis(); //For each push the older one will not be replaced for this unique id
 
-        //Since android Oreo notification channel is needed.
+        // Since android Oreo notification channel is needed.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            String name = "Name";
-            String description = "Channel";
             int importance = NotificationManager.IMPORTANCE_HIGH; //Important   for heads-up notification
-            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_KEY, name, importance);
-            channel.setDescription(description);
+            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_KEY,  getResources().getString(R.string.app_name),importance);
+            channel.setDescription(getResources().getString(R.string.app_name));
             channel.setShowBadge(true);
             channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             NotificationManager notificationManager = getSystemService(NotificationManager.class);
@@ -119,8 +119,8 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
                 notificationManager.createNotificationChannel(channel);
                 notificationManager.notify(notifyId, buildNotification);
             }
-        } else {
-            NotificationManager mNotifyMgr = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        }else{
+            NotificationManager mNotifyMgr =   (NotificationManager)getSystemService(NOTIFICATION_SERVICE);
             if (mNotifyMgr != null) {
                 mNotifyMgr.notify(notifyId, buildNotification);
             }
