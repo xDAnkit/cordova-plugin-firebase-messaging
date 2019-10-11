@@ -20,18 +20,19 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import android.util.Log;
 
+import com.google.android.gms.common.internal.Constants;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 import com.nuvolo.mobius.R;
 
 import java.util.Map;
-import java.util.Random;
 
+import static android.app.Notification.DEFAULT_SOUND;
 import static android.content.ContentResolver.SCHEME_ANDROID_RESOURCE;
 
 
 public class FirebaseMessagingPluginService extends FirebaseMessagingService {
-    private static final String TAG = "FirebaseMessaging";
+    private static final String TAG = "FCM";
 
     public static final String ACTION_FCM_MESSAGE = "by.chemerisuk.cordova.firebase.ACTION_FCM_MESSAGE";
     public static final String EXTRA_FCM_MESSAGE = "by.chemerisuk.cordova.firebase.EXTRA_FCM_MESSAGE";
@@ -39,11 +40,13 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
     public static final String EXTRA_FCM_TOKEN = "by.chemerisuk.cordova.firebase.EXTRA_FCM_TOKEN";
     public final static String NOTIFICATION_ICON_KEY = "com.google.firebase.messaging.default_notification_icon";
     public final static String NOTIFICATION_COLOR_KEY = "com.google.firebase.messaging.default_notification_color";
+    public final static String NOTIFICATION_CHANNEL_KEY = "com.google.firebase.messaging.default_notification_channel_id";
 
     private LocalBroadcastManager broadcastManager;
     private NotificationManager notificationManager;
     private int defaultNotificationIcon;
     private int defaultNotificationColor;
+    private String defaultNotificationChannel;
 
     @Override
     public void onCreate() {
@@ -54,6 +57,7 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
             ApplicationInfo ai = getPackageManager().getApplicationInfo(getApplicationContext().getPackageName(), PackageManager.GET_META_DATA);
             this.defaultNotificationIcon = ai.metaData.getInt(NOTIFICATION_ICON_KEY, ai.icon);
             this.defaultNotificationColor = ContextCompat.getColor(this, ai.metaData.getInt(NOTIFICATION_COLOR_KEY));
+            this.defaultNotificationChannel = ai.metaData.getString(NOTIFICATION_CHANNEL_KEY, "default_channel_id");
         } catch (PackageManager.NameNotFoundException e) {
             Log.e(TAG, "Failed to load meta-data", e);
         } catch (Resources.NotFoundException e) {
@@ -78,71 +82,48 @@ public class FirebaseMessagingPluginService extends FirebaseMessagingService {
         intent.putExtra(EXTRA_FCM_MESSAGE, remoteMessage);
         this.broadcastManager.sendBroadcast(intent);
 
+
         if (FirebaseMessagingPlugin.isForceShow()) {
-            if (remoteMessage.getData().size() > 0) {
-                Log.d("MESS", "Message data payload: " + remoteMessage.getData());
-                sendNotification(remoteMessage);
+            RemoteMessage.Notification notification = remoteMessage.getNotification();
+            if (notification != null) {
+                sendNotification(remoteMessage.getNotification().getTitle(), remoteMessage.getNotification().getBody(), remoteMessage.getData());
             }
         }
     }
 
-    private void sendNotification(RemoteMessage remoteMessage) {
-
-        Map remoteMessageData = remoteMessage.getData();
-        String aTitle = (String) remoteMessageData.get("title");
-        String aMessage = (String) remoteMessageData.get("body");
-
-
-        String name = "user_channel"; // They are hardcoded only for show it's just strings
-        String id = "user_channel_1"; // The user-visible name of the channel.
-        String description = "user_first_channel"; // The user-visible description of the channel.
-
-        PendingIntent pendingIntent;
-        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.journaldev.com/"));
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, id);
-
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel mChannel = this.notificationManager.getNotificationChannel(id);
-
-            if (mChannel == null) {
-                mChannel = new NotificationChannel(id, name, NotificationManager.IMPORTANCE_HIGH);
-                mChannel.setDescription(description);
-                mChannel.enableVibration(true);
-                mChannel.setVibrationPattern(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400});
-                this.notificationManager.createNotificationChannel(mChannel);
-            }
-        }
-
-        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        pendingIntent = PendingIntent.getActivity(this, 0, intent, 0);
-
-        builder.setContentTitle(aTitle)
-                .setContentText(aMessage)
-                .setSmallIcon(this.defaultNotificationIcon)
-                .setColor(this.defaultNotificationColor)
-                .setDefaults(Notification.DEFAULT_ALL)
-                .setAutoCancel(true)
+    private void sendNotification(String messageTitle, String messageBody, Map<String, String> data) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/"));
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0 /* Request code */, intent, PendingIntent.FLAG_ONE_SHOT);
+        NotificationCompat.Builder mBuilder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_KEY)
+                .setSmallIcon(R.drawable.notification)
+                .setContentTitle(messageTitle)
+                .setContentText(messageBody)
                 .setContentIntent(pendingIntent)
-                .setTicker(aTitle)
-                .setVibrate(new long[]{100, 200, 300, 400, 500, 400, 300, 200, 400})
-                .setPriority(Notification.PRIORITY_HIGH)
-                .setAutoCancel(true);
+                .setDefaults(DEFAULT_SOUND) //Important for heads-up notification
+                .setPriority(Notification.PRIORITY_MAX); //Important for heads-up notification
+        Notification buildNotification = mBuilder.build();
 
+        int notifyId = (int) System.currentTimeMillis(); //For each push the older one will not be replaced for this unique id
 
-        //To handle Multiple Notification in system tray
-        Random random = new Random();
-        int m = random.nextInt(9999 - 1000) + 1000;
-        Notification notification = builder.build();
-        this.notificationManager.notify(m, notification);
-
-    }
-
-    private Uri getNotificationSound(String soundName) {
-        if (soundName != null && !soundName.equals("default") && !soundName.equals("enabled")) {
-            return Uri.parse(SCHEME_ANDROID_RESOURCE + "://" + getApplicationContext().getPackageName() + "/raw/" + soundName);
+        //Since android Oreo notification channel is needed.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String name = "Name";
+            String description = "Channel";
+            int importance = NotificationManager.IMPORTANCE_HIGH; //Important   for heads-up notification
+            NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_KEY, name, importance);
+            channel.setDescription(description);
+            channel.setShowBadge(true);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            if (notificationManager != null) {
+                notificationManager.createNotificationChannel(channel);
+                notificationManager.notify(notifyId, buildNotification);
+            }
         } else {
-            return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+            NotificationManager mNotifyMgr = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (mNotifyMgr != null) {
+                mNotifyMgr.notify(notifyId, buildNotification);
+            }
         }
     }
 }
